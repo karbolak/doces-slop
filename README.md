@@ -1,137 +1,156 @@
-<p style="display: flex; align-items: center; justify-content: center; margin: 0;">
-    <img src="https://raw.githubusercontent.com/hfarruda/doces/main/.github/figures/brigadeiro.png" alt="icon" style="width: 100%; max-width: 600px; height: auto; margin-right: 15px;"/>
-</p>
+# DOCES-Slop
 
-DOCES (Dynamical Opinion Clusters Exploration Suite) is an experimental Python library to simulate opinion dynamics on adaptive complex networks. Its background is implemented in C for performance.
+An experimental fork of [DOCES (Dynamical Opinion Clusters Exploration Suite)](https://github.com/hfarruda/doces) for studying the spread and amplification of AI-generated content in social-media networks.
 
-# Install
+This repository contains modifications to the **simulation engine** used in our University of Groningen *Design of Multi-Agent Systems* project.
 
-To install DOCES, simply use the following:
+The research project investigates whether high-volume, adaptive synthetic-content producers can obtain disproportionate exposure through their interaction with social-media recommendation mechanisms.
+
+## Research motivation
+
+Recent work on AI-generated low-effort content, commonly referred to as **AI slop**, suggests that generative AI enables a distinct form of content production characterised by:
+
+- high production volume,
+- rapid experimentation,
+- replication of successful formats,
+- operation of multiple accounts,
+- adaptation to algorithmic feedback.
+
+Our project studies these behaviours using an agent-based model.
+
+The main research question is:
+
+> **Under what conditions does the interaction between high-volume synthetic content production, adaptive attention-seeking behaviour, and algorithmic recommendation lead to disproportionate synthetic-content exposure in a social-media network?**
+
+The project builds primarily on:
+
+- Oliveira, K. A., de Arruda, H. F., & Moreno, Y.  
+  *Mechanistic interplay between information spreading and opinion polarization.*
+
+- Tang et al.  
+  *Behind the "AI slop": exploring the AI-generated viral short video production in China.*
+
+The conceptual feedback mechanism is additionally motivated by:
+
+- Pendergrass, W., Johnson, M., & Bacarella, R.  
+  *A strategic cycle of slop: Understanding the commodification of AI feculence and its place in the attention economy.*
+
+## Why fork DOCES?
+
+DOCES already implements many of the mechanisms required by the project:
+
+- directed social networks,
+- user opinions,
+- posting and reposting,
+- limited-memory feeds,
+- recommendation filters,
+- friendship rewiring,
+- information cascades,
+- per-user behavioural configuration.
+
+The original Oliveira et al. model selects active users uniformly at random. One of the first extensions in this project will replace this assumption with **heterogeneous activity**, allowing synthetic and human producers to differ in how frequently they become active.
+
+Later extensions may introduce:
+
+- human and synthetic producer types,
+- content provenance,
+- heterogeneous activity rates,
+- adaptive synthetic-producer strategies,
+- reward-driven behaviour,
+- coordinated synthetic accounts,
+- platform interventions.
+
+The goal is to modify the existing model incrementally rather than reimplement the social-media simulation from scratch.
+
+---
+
+# Repository role
+
+This repository contains the **modified DOCES simulation engine**.
+
+The intended project structure is:
+
+```text
+DMAS/
+├── doces-slop/       # this repository: modified simulator
+└── dmas-ai-slop/     # experiments, configs, analysis, figures and paper
+```
+
+## Quick start
+
+This repository is our modified fork of DOCES. If you want to work on the simulator or run the current baseline, follow these steps.
+
+### 1. Clone the repository
 
 ```bash
-pip install doces
+git clone <OUR-REPOSITORY-URL>
+cd doces-slop
 ```
 
-If the first command does not find a compatible version of DOCES for your Python version, use the following command to install the package:
+You do not need to fork the repository yourself. Clone the shared team repository directly.
+
+### 2. Create the Conda environment
+
+We use Python 3.12 because DOCES currently depends on numpy<2.0 and includes a compiled C extension.
+
+Create the environment from the provided file:
+
 ```bash
-pip install git+https://github.com/hfarruda/doces.git
+conda env create -f environment.yaml
 ```
 
-# Usage
+Activate it:
 
-Once installed, you can set up the agent-based simulation by instantiating an object with the constructor `Opinion_dynamics()` with a network, like in the example below.
-
-```python
-import doces
-# Initializes the network parameters
-...
-# Creates a Opinion_dynamics object.
-od = doces.Opinion_dynamics( 
-    vertex_count, 
-    edges,
-    directed)
+```bash
+conda activate doces-slop
 ```
 
-The constructor takes the features of the network connecting agents as arguments. They are:
-- `vertex_count` - number of nodes/agents in the network;
-- `edges` - a python list of 2-tuples of nodes denoting the network edges ((source, target) in the case it is directed);
-- `directed` - a boolean indicating whether the network is directed or not;
+Check that the correct Python version is active:
 
-Once the `od` object is initialized, the simulation can be performed by calling its method `simulate_dynamics()` as
-
-```python
-# Initializes the dynamics parameters
-...
-# Run the dynamics
-output_dictionary = od.simulate_dynamics(
-    number_of_iterations,
-    phi,
-    mu, 
-    posting_filter, 
-    receiving_filter,
-    b = None,
-    feed_size = 5,
-    rewire = True,
-    cascade_stats_output_file = None,
-    min_opinion = -1, 
-    max_opinion = 1,
-    delta = 0.1,
-    verbose = True,
-    rand_seed = None)
-
-opinions = output_dictionary["b"]
-edge_list = output_dictionary["edges"]
+```bash
+python --version
 ```
 
-The method outputs are a list `opinions` of continuous values between `min_opinion` and `max_opinion` for each agent and a Python list of 2-tuples with the network structure after the simulation is finished. Its inputs are:
+Expected:
 
-- `number_of_iterations` - an integer (positive value) that is used as the number of iterations for the model to run;
-- `phi` - a float number which controls the receiving filter;
-- `mu` - a float number that controls the innovation parameter. If `mu = 0`, there is no innovation, and if `mu = 1`, all the posts are new and the feed posts are never re-posted;
-- `posting_filter` - an integer from 0 to 5 to set which function filters posting activity, according to the below specification;
-- `receiving_filter` - an integer from 0 to 5 to set which function filters how posts are received, according to the below specification;
-- `b` - an array of floats corresponding to the initial opinions of agents;
-- `feed_size` - an integer to set the size of the feed. The default value is 5;
-- `rewire` - a boolean to allow rewiring in each iteration or not;
-- `cascade_stats_output_file` - a string representing the output file path for cascade statistics. The default value is None;
-- `min_opinion` - a float corresponding to the minimum opinion value agents can have;
-- `max_opinion` - a float corresponding to the maximum opinion value agents can have;
-- `delta` - a float corresponding to the increment (or decrement) applied to opinions in each iteration;
-- `verbose` - a boolean that allows the code to print details of each simulation;
-- `rand_seed` - an integer (positive value) used as a seed for random number generation;
-
-The filter functions are predefined in the library in the variables  
-- 0: `COSINE`: Controversial posting rule (eq. 1);
-- 2: `UNIFORM`: Priority receiving rule;
-- 3: `HALF_COSINE` Aligned posting rule (eq. 2),  
-- 5:`CUSTOM` Allows different filters to be passed as a list of integers (with size equal to the number of agents).
-
-To use option 5, you can call the methods `set_posting_filter()` and `set_receiving_filter()`, as in the example below. Additionally, agents can be set as stubborn by passing a list with integers indicating those agents to the method `set_stubborn()`. Remember to do this before calling `simulate_dynamics()`.
-
-```python
-# Initializes the lists to be set
-...
-# Set the posting filter
-od.set_posting_filter(posting_filter)
-
-# Set the receiving filter
-od.set_receiving_filter(receiving_filter)
-
-# Set stubborn users 
-od.set_stubborn(stubborn_users)
+```bash
+Python 3.12.x
 ```
 
-# Tested OS
+### 3. Install the local DOCES fork
 
-Linux (Debian and Ubuntu), MacOS, and Windows
+From the repository root:
 
-# DOCES Architecture
+```bash
+pip install -e .
+```
 
-DOCES combines high-performance C code for computational efficiency with Python for an easy-to-use interface. The architecture is modular, with the **Core** implemented in C and **Methods** accessible via Python.
+The -e flag installs DOCES in editable mode. This means changes to the source code in this repository are immediately reflected when importing doces.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/hfarruda/doces/main/.github/figures/diagram.png" alt="DOCES Architecture" style="width:90%;">
-</div>
+Verify that the package loads:
 
-# Citation Request
+```bash
+python -c "import doces; print('DOCES import works')"
+```
 
-If you publish a scientific paper using this software, please cite the corresponding reference:
+Expected output:
 
-Henrique Ferraz de Arruda, Kleber Andrade Oliveira, and Yamir Moreno. "Dynamical opinion clusters exploration suite: Modeling social media opinion dynamics." SoftwareX, Vol. 30, 2025, p. 102136. DOI: 
-[10.1016/j.softx.2025.102136](https://doi.org/10.1016/j.softx.2025.102136).  
+DOCES import works
 
-[Read the paper here](https://www.sciencedirect.com/science/article/pii/S2352711025001037).
+### 4. Run the baseline smoke test
 
-The BibTeX entry for this reference can be found [here](https://raw.githubusercontent.com/hfarruda/doces/main/doces.bib).
+Run:
 
-In addition, if your work addresses specific aspects of the opinion dynamics modeled in this software, please also cite the relevant references:
+```bash
+python baseline_smoke_test.py
+```
 
-- Henrique Ferraz de Arruda, Felipe Maciel Cardoso, Guilherme Ferraz de Arruda, Alexis R. Hernández, Luciano da Fontoura Costa, and Yamir Moreno. "Modelling how social network algorithms can influence opinion polarization." Information Sciences 588 (2022): 265-278.
+The script creates a small directed network, runs the unmodified DOCES simulation for 10,000 iterations, and verifies that opinions, edges, and cascade statistics can be retrieved.
 
-The dynamics for directed networks, or with the use of particular types of users (e.g., stubborn and verified) is cited as follows:
+A successful run ends with:
 
-- Henrique Ferraz de Arruda, Kleber Andrade Oliveira, and Yamir Moreno. "Echo chamber formation sharpened by priority users." iScience (2024).
+```bash
+✓ DOCES smoke test passed.
+```
 
-The dynamics with feeds (innovation parameter `mu < 1`) is cited as follows:
-
-- Kleber Andrade Oliveira, Henrique Ferraz de Arruda, and Yamir Moreno. "Mechanistic interplay between information spreading and opinion polarization." arXiv preprint arXiv:2410.17151 (2024).
+If this works, your local environment is ready for development.
