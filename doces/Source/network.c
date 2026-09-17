@@ -248,28 +248,31 @@ bool setActivityWeights(
 
 
 unsigned int selectActiveNode(Network *network){
+    unsigned int selectedNode;
+
     /*
-     * Backwards-compatible path:
-     * original DOCES uniform random activation.
+     * Original DOCES activation path.
+     *
+     * If heterogeneous activity has not been configured,
+     * use the original randomNode() implementation exactly.
      */
     if (
         network->activityCumulativeWeights == NULL
         || network->totalActivityWeight <= 0.0
     ){
-        return randomNode(network);
+        selectedNode = randomNode(network);
+
+        if (network->activationCounts){
+            network->activationCounts[selectedNode]++;
+        }
+
+        return selectedNode;
     }
 
     FLOAT target =
         drawRandomFLOATNumber()
         * network->totalActivityWeight;
 
-    /*
-     * Find the first cumulative weight strictly greater
-     * than target.
-     *
-     * This also ensures zero-weight agents occupy no
-     * probability interval.
-     */
     unsigned int low = 0;
     unsigned int high = network->vCount;
 
@@ -288,38 +291,41 @@ unsigned int selectActiveNode(Network *network){
     }
 
     if (low < network->vCount){
-        return low;
-    }
+        selectedNode = low;
+    } else {
+        /*
+         * Defensive fallback for platforms where the random
+         * draw may equal exactly 1.
+         */
+        selectedNode = network->vCount - 1;
 
-    /*
-     * drawRandomFLOATNumber() can theoretically return 1
-     * on some platforms. In that case target == total.
-     * Return the last positive-weight agent.
-     */
-    for (
-        unsigned int i = network->vCount;
-        i > 0;
-        i--
-    ){
-        unsigned int index = i - 1;
-
-        FLOAT previous =
-            index == 0
-            ? 0.0
-            : network->activityCumulativeWeights[index - 1];
-
-        if (
-            network->activityCumulativeWeights[index]
-            > previous
+        for (
+            unsigned int i = network->vCount;
+            i > 0;
+            i--
         ){
-            return index;
+            unsigned int index = i - 1;
+
+            FLOAT previous =
+                index == 0
+                ? 0.0
+                : network->activityCumulativeWeights[index - 1];
+
+            if (
+                network->activityCumulativeWeights[index]
+                > previous
+            ){
+                selectedNode = index;
+                break;
+            }
         }
     }
 
-    /*
-     * Should be unreachable because totalActivityWeight > 0.
-     */
-    return randomNode(network);
+    if (network->activationCounts){
+        network->activationCounts[selectedNode]++;
+    }
+
+    return selectedNode;
 }
 
 void destroyNetwork(Network *network){
@@ -338,6 +344,10 @@ void destroyNetwork(Network *network){
 	if (network->neighborsCount){
 		free(network->neighborsCount);
 		network->neighborsCount = NULL;
+	}
+	if (network->activationCounts){
+    free(network->activationCounts);
+    network->activationCounts = NULL;
 	}
 	
 	clearActivityWeights(network);

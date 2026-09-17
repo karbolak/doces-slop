@@ -302,12 +302,25 @@ int PyDynamics_init(PyDynamics *self, PyObject *args, PyObject *kwds){
 
 	self->network->activityCumulativeWeights = NULL;
 	self->network->totalActivityWeight = 0.0;
+	self->network->activationCounts = NULL;
 
 	edgeList2Network(
 		self->network,
 		*edgeList,
 		self->verbose
 	);
+
+	self->network->activationCounts =
+		calloc(
+			self->network->vCount,
+			sizeof(unsigned long long)
+		);
+
+	if (!self->network->activationCounts) {
+		PyErr_NoMemory();
+		return EXIT_FAILURE;
+	}
+
 	if (self->verbose && self->network->vCount < 50) 
 		printNetwork(self->network);
 	
@@ -505,6 +518,37 @@ PyObject * PyGetPostUserOpinions(PyDynamics *self){
 	return pyList;
 }
 
+PyObject *PyGetActivationCounts(PyDynamics *self){
+    PyObject *counts = PyList_New(0);
+
+    if (
+        self->network
+        && self->network->activationCounts
+    ){
+        for (
+            unsigned int i = 0;
+            i < self->network->vCount;
+            i++
+        ){
+            PyObject *value =
+                PyLong_FromUnsignedLongLong(
+                    self->network->activationCounts[i]
+                );
+
+            PyList_Append(
+                counts,
+                value
+            );
+
+            Py_DECREF(
+                value
+            );
+        }
+    }
+
+    return counts;
+}
+
 static PyGetSetDef PyDynamics_getsetters[] = {
 	{"opinions", (getter)PyGetOpinions, NULL, "Get a list of agent opinions.", NULL},
 	{"edge_list", (getter)PyGetEdgeList, NULL, "Get edgelist.", NULL},
@@ -517,6 +561,7 @@ static PyGetSetDef PyDynamics_getsetters[] = {
 	{"post_deaths", (getter)PyGetPostDeaths, NULL, "Get a list of the post deaths.", NULL},
 	{"post_live_post_counts", (getter)PyGetPostLivePosts, NULL, "Get a list of live post counts.", NULL},
 	{"post_user_opinions", (getter)PyGetPostUserOpinions, NULL, "Get a list of post user opinions.", NULL},
+	{"activation_counts", (getter)PyGetActivationCounts, NULL, "Get cumulative per-user activation counts.", NULL},
 	{NULL} /* Sentinel */
 };
 

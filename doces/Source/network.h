@@ -29,14 +29,11 @@ typedef struct {
     unsigned int *neighborsCount;
     bool isDirected;
 
-    /*
-     * Optional heterogeneous activity model.
-     *
-     * NULL means original DOCES uniform activation.
-     * Otherwise this stores cumulative relative activation weights.
-     */
     FLOAT *activityCumulativeWeights;
     FLOAT totalActivityWeight;
+
+    /* Number of times each user has been activated. */
+    unsigned long long *activationCounts;
 } Network;
 
 typedef struct {
