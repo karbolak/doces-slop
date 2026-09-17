@@ -201,7 +201,7 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
 			PROGRESS_BAR(iterationBar, numberOfIterations);
             iterationBar++;
 		}
-        selectedNode = randomNode(network);
+        selectedNode = selectActiveNode(network);
         bOfTheSelectedNode = b[selectedNode];
         thereIsPost = false;
         isNewPost = false;

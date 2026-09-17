@@ -28,6 +28,15 @@ typedef struct {
     unsigned int **invertedAdjlist;
     unsigned int *neighborsCount;
     bool isDirected;
+
+    /*
+     * Optional heterogeneous activity model.
+     *
+     * NULL means original DOCES uniform activation.
+     * Otherwise this stores cumulative relative activation weights.
+     */
+    FLOAT *activityCumulativeWeights;
+    FLOAT totalActivityWeight;
 } Network;
 
 typedef struct {
@@ -49,5 +58,15 @@ void rewireConnectionNewTarget(Network *network, unsigned int nodeId, unsigned i
 bool rewireConnectionToRandom(Network *network, unsigned int nodeId, unsigned int target);
 unsigned int randomNeighbor(Network *network, unsigned int agent);
 unsigned int randomNode(Network *network);
+unsigned int selectActiveNode(Network *network);
+
+bool setActivityWeights(
+    Network *network,
+    const FLOAT *weights,
+    unsigned int count
+);
+
+void clearActivityWeights(Network *network);
+
 void destroyNetwork(Network *network);
 

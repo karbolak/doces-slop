@@ -162,6 +162,166 @@ unsigned int randomNode(Network *network){
 	 return (unsigned int) (drawRandomUIntNumber() % network->vCount);
 }
 
+void clearActivityWeights(Network *network){
+    if (network->activityCumulativeWeights){
+        free(network->activityCumulativeWeights);
+        network->activityCumulativeWeights = NULL;
+    }
+
+    network->totalActivityWeight = 0.0;
+}
+
+
+bool setActivityWeights(
+    Network *network,
+    const FLOAT *weights,
+    unsigned int count
+){
+    if (!network || !weights){
+        return false;
+    }
+
+    if (count != network->vCount || count == 0){
+        return false;
+    }
+
+    FLOAT total = 0.0;
+    FLOAT firstWeight = weights[0];
+    bool allEqual = true;
+
+    /*
+     * Validate first. Do not destroy an existing valid
+     * configuration if the new one is invalid.
+     */
+    for (unsigned int i = 0; i < count; i++){
+        if (weights[i] < 0.0){
+            return false;
+        }
+
+        if (weights[i] != firstWeight){
+            allEqual = false;
+        }
+
+        total += weights[i];
+    }
+
+    if (total <= 0.0){
+        return false;
+    }
+
+    /*
+     * Equal positive weights are mathematically uniform.
+     *
+     * Disable weighted mode entirely so this case follows
+     * the exact original DOCES randomNode() path.
+     */
+    if (allEqual){
+        clearActivityWeights(network);
+        return true;
+    }
+
+    FLOAT *cumulativeWeights =
+        (FLOAT *) malloc(count * sizeof(FLOAT));
+
+    if (!cumulativeWeights){
+        return false;
+    }
+
+    FLOAT cumulative = 0.0;
+
+    for (unsigned int i = 0; i < count; i++){
+        cumulative += weights[i];
+        cumulativeWeights[i] = cumulative;
+    }
+
+    /*
+     * Only replace the previous configuration once the new
+     * one has been successfully allocated and constructed.
+     */
+    clearActivityWeights(network);
+
+    network->activityCumulativeWeights = cumulativeWeights;
+    network->totalActivityWeight = total;
+
+    return true;
+}
+
+
+unsigned int selectActiveNode(Network *network){
+    /*
+     * Backwards-compatible path:
+     * original DOCES uniform random activation.
+     */
+    if (
+        network->activityCumulativeWeights == NULL
+        || network->totalActivityWeight <= 0.0
+    ){
+        return randomNode(network);
+    }
+
+    FLOAT target =
+        drawRandomFLOATNumber()
+        * network->totalActivityWeight;
+
+    /*
+     * Find the first cumulative weight strictly greater
+     * than target.
+     *
+     * This also ensures zero-weight agents occupy no
+     * probability interval.
+     */
+    unsigned int low = 0;
+    unsigned int high = network->vCount;
+
+    while (low < high){
+        unsigned int mid =
+            low + (high - low) / 2;
+
+        if (
+            target
+            < network->activityCumulativeWeights[mid]
+        ){
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    if (low < network->vCount){
+        return low;
+    }
+
+    /*
+     * drawRandomFLOATNumber() can theoretically return 1
+     * on some platforms. In that case target == total.
+     * Return the last positive-weight agent.
+     */
+    for (
+        unsigned int i = network->vCount;
+        i > 0;
+        i--
+    ){
+        unsigned int index = i - 1;
+
+        FLOAT previous =
+            index == 0
+            ? 0.0
+            : network->activityCumulativeWeights[index - 1];
+
+        if (
+            network->activityCumulativeWeights[index]
+            > previous
+        ){
+            return index;
+        }
+    }
+
+    /*
+     * Should be unreachable because totalActivityWeight > 0.
+     */
+    return randomNode(network);
+}
+
 void destroyNetwork(Network *network){
 	for (unsigned int i=0; i < network->vCount; i++){
         if (network->neighborsCount[i] > 0){
@@ -179,5 +339,8 @@ void destroyNetwork(Network *network){
 		free(network->neighborsCount);
 		network->neighborsCount = NULL;
 	}
+	
+	clearActivityWeights(network);
+
 	network = NULL;
 }

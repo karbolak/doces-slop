@@ -28,6 +28,7 @@ SOFTWARE.
 #define PY_SSIZE_T_CLEAN
 #include "version.h"
 #include "documentation.h"
+#include <math.h>
 #include <dynamics.h>
 #include <Python.h>
 // #include <pthread.h>
@@ -298,7 +299,15 @@ int PyDynamics_init(PyDynamics *self, PyObject *args, PyObject *kwds){
 	}
 
 	self->network = malloc(sizeof(Network));
- 	edgeList2Network(self->network , *edgeList, self->verbose);
+
+	self->network->activityCumulativeWeights = NULL;
+	self->network->totalActivityWeight = 0.0;
+
+	edgeList2Network(
+		self->network,
+		*edgeList,
+		self->verbose
+	);
 	if (self->verbose && self->network->vCount < 50) 
 		printNetwork(self->network);
 	
@@ -951,6 +960,133 @@ PyObject *PySetStubborn(PyDynamics *self, PyObject *args, PyObject *kwds){
 	return Py_BuildValue("", NULL);
 }
 
+PyObject *PySetActivityWeights(
+    PyDynamics *self,
+    PyObject *args,
+    PyObject *kwds
+){
+    static char *kwlist[] = {
+        "activity_weights",
+        NULL
+    };
+
+    PyObject *activityWeightsObject = NULL;
+    PyArrayObject *activityWeightsArray = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(
+            args,
+            kwds,
+            "O",
+            kwlist,
+            &activityWeightsObject
+        )){
+        return NULL;
+    }
+
+    activityWeightsArray =
+        convertToFLOATArray(
+            activityWeightsObject,
+            1,
+            1
+        );
+
+    if (!activityWeightsArray){
+        PyErr_SetString(
+            PyExc_TypeError,
+            "Error creating activity weights array."
+        );
+
+        return NULL;
+    }
+
+    unsigned long int size =
+        (unsigned long int)
+        PyArray_SIZE(activityWeightsArray);
+
+    if (size != self->network->vCount){
+        Py_XDECREF(activityWeightsArray);
+
+        PyErr_SetString(
+            PyExc_ValueError,
+            "Activity weights must have the same "
+            "length as the number of vertices."
+        );
+
+        return NULL;
+    }
+
+    FLOAT *activityWeightsData =
+        PyArray_DATA(activityWeightsArray);
+
+    bool anyPositive = false;
+
+    for (
+        unsigned int i = 0;
+        i < self->network->vCount;
+        i++
+    ){
+        FLOAT weight =
+            activityWeightsData[i];
+
+        if (!isfinite(weight)){
+            Py_XDECREF(activityWeightsArray);
+
+            PyErr_SetString(
+                PyExc_ValueError,
+                "Activity weights must be finite."
+            );
+
+            return NULL;
+        }
+
+        if (weight < 0.0){
+            Py_XDECREF(activityWeightsArray);
+
+            PyErr_SetString(
+                PyExc_ValueError,
+                "Activity weights must be non-negative."
+            );
+
+            return NULL;
+        }
+
+        if (weight > 0.0){
+            anyPositive = true;
+        }
+    }
+
+    if (!anyPositive){
+        Py_XDECREF(activityWeightsArray);
+
+        PyErr_SetString(
+            PyExc_ValueError,
+            "At least one activity weight must be positive."
+        );
+
+        return NULL;
+    }
+
+    bool success =
+        setActivityWeights(
+            self->network,
+            activityWeightsData,
+            (unsigned int) size
+        );
+
+    Py_XDECREF(activityWeightsArray);
+
+    if (!success){
+        PyErr_SetString(
+            PyExc_RuntimeError,
+            "Failed to configure activity weights."
+        );
+
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 
 PyObject *PyDestroyNetwork(PyDynamics *self){
 	if (self->network)
@@ -996,6 +1132,10 @@ static PyMethodDef PyDynamics_methods[] = {
 	 (PyCFunction)PySetStubborn,
 	 METH_VARARGS | METH_KEYWORDS,
 	 DOCTOSTRING(SET_STUBBORN_DOC)},
+	 {"_set_activity_weights",
+     (PyCFunction)PySetActivityWeights,
+     METH_VARARGS | METH_KEYWORDS,
+     DOCTOSTRING(SET_ACTIVITY_WEIGHTS_DOC)},
 	 {"force_dealloc",
 	 (PyCFunction)PyForceDealloc,
 	 METH_VARARGS | METH_KEYWORDS,

@@ -40,3 +40,5 @@ Dictionary with resulting opinions and edge list.
 #define FORCE_DEALLOC_DOC Clean the memory. Returns: None.
 
 #define SET_STUBBORN_DOC Set nodes that never change their opinions (numpy array of integers).
+
+#define SET_ACTIVITY_WEIGHTS_DOC Set relative per-user activity weights.
