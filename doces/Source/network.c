@@ -162,6 +162,172 @@ unsigned int randomNode(Network *network){
 	 return (unsigned int) (drawRandomUIntNumber() % network->vCount);
 }
 
+void clearActivityWeights(Network *network){
+    if (network->activityCumulativeWeights){
+        free(network->activityCumulativeWeights);
+        network->activityCumulativeWeights = NULL;
+    }
+
+    network->totalActivityWeight = 0.0;
+}
+
+
+bool setActivityWeights(
+    Network *network,
+    const FLOAT *weights,
+    unsigned int count
+){
+    if (!network || !weights){
+        return false;
+    }
+
+    if (count != network->vCount || count == 0){
+        return false;
+    }
+
+    FLOAT total = 0.0;
+    FLOAT firstWeight = weights[0];
+    bool allEqual = true;
+
+    /*
+     * Validate first. Do not destroy an existing valid
+     * configuration if the new one is invalid.
+     */
+    for (unsigned int i = 0; i < count; i++){
+        if (weights[i] < 0.0){
+            return false;
+        }
+
+        if (weights[i] != firstWeight){
+            allEqual = false;
+        }
+
+        total += weights[i];
+    }
+
+    if (total <= 0.0){
+        return false;
+    }
+
+    /*
+     * Equal positive weights are mathematically uniform.
+     *
+     * Disable weighted mode entirely so this case follows
+     * the exact original DOCES randomNode() path.
+     */
+    if (allEqual){
+        clearActivityWeights(network);
+        return true;
+    }
+
+    FLOAT *cumulativeWeights =
+        (FLOAT *) malloc(count * sizeof(FLOAT));
+
+    if (!cumulativeWeights){
+        return false;
+    }
+
+    FLOAT cumulative = 0.0;
+
+    for (unsigned int i = 0; i < count; i++){
+        cumulative += weights[i];
+        cumulativeWeights[i] = cumulative;
+    }
+
+    /*
+     * Only replace the previous configuration once the new
+     * one has been successfully allocated and constructed.
+     */
+    clearActivityWeights(network);
+
+    network->activityCumulativeWeights = cumulativeWeights;
+    network->totalActivityWeight = total;
+
+    return true;
+}
+
+
+unsigned int selectActiveNode(Network *network){
+    unsigned int selectedNode;
+
+    /*
+     * Original DOCES activation path.
+     *
+     * If heterogeneous activity has not been configured,
+     * use the original randomNode() implementation exactly.
+     */
+    if (
+        network->activityCumulativeWeights == NULL
+        || network->totalActivityWeight <= 0.0
+    ){
+        selectedNode = randomNode(network);
+
+        if (network->activationCounts){
+            network->activationCounts[selectedNode]++;
+        }
+
+        return selectedNode;
+    }
+
+    FLOAT target =
+        drawRandomFLOATNumber()
+        * network->totalActivityWeight;
+
+    unsigned int low = 0;
+    unsigned int high = network->vCount;
+
+    while (low < high){
+        unsigned int mid =
+            low + (high - low) / 2;
+
+        if (
+            target
+            < network->activityCumulativeWeights[mid]
+        ){
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    if (low < network->vCount){
+        selectedNode = low;
+    } else {
+        /*
+         * Defensive fallback for platforms where the random
+         * draw may equal exactly 1.
+         */
+        selectedNode = network->vCount - 1;
+
+        for (
+            unsigned int i = network->vCount;
+            i > 0;
+            i--
+        ){
+            unsigned int index = i - 1;
+
+            FLOAT previous =
+                index == 0
+                ? 0.0
+                : network->activityCumulativeWeights[index - 1];
+
+            if (
+                network->activityCumulativeWeights[index]
+                > previous
+            ){
+                selectedNode = index;
+                break;
+            }
+        }
+    }
+
+    if (network->activationCounts){
+        network->activationCounts[selectedNode]++;
+    }
+
+    return selectedNode;
+}
+
 void destroyNetwork(Network *network){
 	for (unsigned int i=0; i < network->vCount; i++){
         if (network->neighborsCount[i] > 0){
@@ -179,5 +345,12 @@ void destroyNetwork(Network *network){
 		free(network->neighborsCount);
 		network->neighborsCount = NULL;
 	}
+	if (network->activationCounts){
+    free(network->activationCounts);
+    network->activationCounts = NULL;
+	}
+	
+	clearActivityWeights(network);
+
 	network = NULL;
 }

@@ -199,6 +199,30 @@ class Opinion_dynamics(core.Dynamics):
         """
         stubborn = np.array(stubborn, dtype=int)
         core.Dynamics._set_stubborn(self, stubborn)
+        
+    def set_activity_weights(self, activity_weights):
+        """
+        Set relative activation rates for users.
+
+        Parameters
+        ----------
+        activity_weights : array-like of float
+            Relative probability weights for user activation.
+
+            The array length must equal vertex_count.
+            Weights must be finite and non-negative, and at least
+            one weight must be positive.
+
+            For example, weights [1, 1, 5] make the third user
+            five times as likely to activate as either of the first
+            two users.
+
+            Equal positive weights preserve the original uniform
+            DOCES activation behaviour.
+        """
+        activity_weights = np.array(activity_weights, dtype=np.single)
+
+        core.Dynamics._set_activity_weights(self, activity_weights)
 
     def get_cascade_stats_dict(self):
         """
@@ -224,6 +248,8 @@ class Opinion_dynamics(core.Dynamics):
         self._cascade_stats_dict['live_posts'] = self.post_live_post_counts
         self._cascade_stats_dict['user_opinion'] = self.post_user_opinions
         self.generated_cascade_stats_dict = True
+        self._cascade_stats_dict["origin_user_id"] = self.post_origin_user_ids
+        self._cascade_stats_dict["received_count"] = self.post_received_counts
         return self._cascade_stats_dict
 
     def get_cascade_stats_post_id2stats_dict(self):

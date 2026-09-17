@@ -28,6 +28,7 @@ SOFTWARE.
 #define PY_SSIZE_T_CLEAN
 #include "version.h"
 #include "documentation.h"
+#include <math.h>
 #include <dynamics.h>
 #include <Python.h>
 // #include <pthread.h>
@@ -298,7 +299,28 @@ int PyDynamics_init(PyDynamics *self, PyObject *args, PyObject *kwds){
 	}
 
 	self->network = malloc(sizeof(Network));
- 	edgeList2Network(self->network , *edgeList, self->verbose);
+
+	self->network->activityCumulativeWeights = NULL;
+	self->network->totalActivityWeight = 0.0;
+	self->network->activationCounts = NULL;
+
+	edgeList2Network(
+		self->network,
+		*edgeList,
+		self->verbose
+	);
+
+	self->network->activationCounts =
+		calloc(
+			self->network->vCount,
+			sizeof(unsigned long long)
+		);
+
+	if (!self->network->activationCounts) {
+		PyErr_NoMemory();
+		return EXIT_FAILURE;
+	}
+
 	if (self->verbose && self->network->vCount < 50) 
 		printNetwork(self->network);
 	
@@ -496,6 +518,76 @@ PyObject * PyGetPostUserOpinions(PyDynamics *self){
 	return pyList;
 }
 
+PyObject *PyGetActivationCounts(PyDynamics *self){
+    PyObject *counts = PyList_New(0);
+
+    if (
+        self->network
+        && self->network->activationCounts
+    ){
+        for (
+            unsigned int i = 0;
+            i < self->network->vCount;
+            i++
+        ){
+            PyObject *value =
+                PyLong_FromUnsignedLongLong(
+                    self->network->activationCounts[i]
+                );
+
+            PyList_Append(
+                counts,
+                value
+            );
+
+            Py_DECREF(
+                value
+            );
+        }
+    }
+
+    return counts;
+}
+
+PyObject *PyGetPostOriginUserIds(PyDynamics *self){PyObject *pyList = PyList_New(0);
+    if (self->postList && self->network){
+        for (
+            unsigned long int i = 0;
+            i < self->postList->numberOfPosts;
+            i++
+        ){
+            PyObject *value = PyLong_FromLong(
+                self->postList->post[i].originUserId
+            );
+
+            PyList_Append(pyList, value);
+            Py_DECREF(value);
+        }
+    }
+
+    return pyList;
+}
+
+
+PyObject *PyGetPostReceivedCounts(PyDynamics *self){PyObject *pyList = PyList_New(0);
+    if (self->postList && self->network){
+        for (
+            unsigned long int i = 0;
+            i < self->postList->numberOfPosts;
+            i++
+        ){
+            PyObject *value = PyLong_FromUnsignedLong(
+                self->postList->post[i].receivedCount
+            );
+
+            PyList_Append(pyList, value);
+            Py_DECREF(value);
+        }
+    }
+
+    return pyList;
+}
+
 static PyGetSetDef PyDynamics_getsetters[] = {
 	{"opinions", (getter)PyGetOpinions, NULL, "Get a list of agent opinions.", NULL},
 	{"edge_list", (getter)PyGetEdgeList, NULL, "Get edgelist.", NULL},
@@ -508,6 +600,9 @@ static PyGetSetDef PyDynamics_getsetters[] = {
 	{"post_deaths", (getter)PyGetPostDeaths, NULL, "Get a list of the post deaths.", NULL},
 	{"post_live_post_counts", (getter)PyGetPostLivePosts, NULL, "Get a list of live post counts.", NULL},
 	{"post_user_opinions", (getter)PyGetPostUserOpinions, NULL, "Get a list of post user opinions.", NULL},
+	{"activation_counts", (getter)PyGetActivationCounts, NULL, "Get cumulative per-user activation counts.", NULL},
+	{"post_origin_user_ids", (getter)PyGetPostOriginUserIds, NULL, "Get the originating user id for each post.", NULL},
+	{"post_received_counts", (getter)PyGetPostReceivedCounts, NULL, "Get the number of successful feed receipts for each post.", NULL},
 	{NULL} /* Sentinel */
 };
 
@@ -951,6 +1046,133 @@ PyObject *PySetStubborn(PyDynamics *self, PyObject *args, PyObject *kwds){
 	return Py_BuildValue("", NULL);
 }
 
+PyObject *PySetActivityWeights(
+    PyDynamics *self,
+    PyObject *args,
+    PyObject *kwds
+){
+    static char *kwlist[] = {
+        "activity_weights",
+        NULL
+    };
+
+    PyObject *activityWeightsObject = NULL;
+    PyArrayObject *activityWeightsArray = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(
+            args,
+            kwds,
+            "O",
+            kwlist,
+            &activityWeightsObject
+        )){
+        return NULL;
+    }
+
+    activityWeightsArray =
+        convertToFLOATArray(
+            activityWeightsObject,
+            1,
+            1
+        );
+
+    if (!activityWeightsArray){
+        PyErr_SetString(
+            PyExc_TypeError,
+            "Error creating activity weights array."
+        );
+
+        return NULL;
+    }
+
+    unsigned long int size =
+        (unsigned long int)
+        PyArray_SIZE(activityWeightsArray);
+
+    if (size != self->network->vCount){
+        Py_XDECREF(activityWeightsArray);
+
+        PyErr_SetString(
+            PyExc_ValueError,
+            "Activity weights must have the same "
+            "length as the number of vertices."
+        );
+
+        return NULL;
+    }
+
+    FLOAT *activityWeightsData =
+        PyArray_DATA(activityWeightsArray);
+
+    bool anyPositive = false;
+
+    for (
+        unsigned int i = 0;
+        i < self->network->vCount;
+        i++
+    ){
+        FLOAT weight =
+            activityWeightsData[i];
+
+        if (!isfinite(weight)){
+            Py_XDECREF(activityWeightsArray);
+
+            PyErr_SetString(
+                PyExc_ValueError,
+                "Activity weights must be finite."
+            );
+
+            return NULL;
+        }
+
+        if (weight < 0.0){
+            Py_XDECREF(activityWeightsArray);
+
+            PyErr_SetString(
+                PyExc_ValueError,
+                "Activity weights must be non-negative."
+            );
+
+            return NULL;
+        }
+
+        if (weight > 0.0){
+            anyPositive = true;
+        }
+    }
+
+    if (!anyPositive){
+        Py_XDECREF(activityWeightsArray);
+
+        PyErr_SetString(
+            PyExc_ValueError,
+            "At least one activity weight must be positive."
+        );
+
+        return NULL;
+    }
+
+    bool success =
+        setActivityWeights(
+            self->network,
+            activityWeightsData,
+            (unsigned int) size
+        );
+
+    Py_XDECREF(activityWeightsArray);
+
+    if (!success){
+        PyErr_SetString(
+            PyExc_RuntimeError,
+            "Failed to configure activity weights."
+        );
+
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 
 PyObject *PyDestroyNetwork(PyDynamics *self){
 	if (self->network)
@@ -996,6 +1218,10 @@ static PyMethodDef PyDynamics_methods[] = {
 	 (PyCFunction)PySetStubborn,
 	 METH_VARARGS | METH_KEYWORDS,
 	 DOCTOSTRING(SET_STUBBORN_DOC)},
+	 {"_set_activity_weights",
+     (PyCFunction)PySetActivityWeights,
+     METH_VARARGS | METH_KEYWORDS,
+     DOCTOSTRING(SET_ACTIVITY_WEIGHTS_DOC)},
 	 {"force_dealloc",
 	 (PyCFunction)PyForceDealloc,
 	 METH_VARARGS | METH_KEYWORDS,

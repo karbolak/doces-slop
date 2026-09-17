@@ -28,6 +28,12 @@ typedef struct {
     unsigned int **invertedAdjlist;
     unsigned int *neighborsCount;
     bool isDirected;
+
+    FLOAT *activityCumulativeWeights;
+    FLOAT totalActivityWeight;
+
+    /* Number of times each user has been activated. */
+    unsigned long long *activationCounts;
 } Network;
 
 typedef struct {
@@ -49,5 +55,15 @@ void rewireConnectionNewTarget(Network *network, unsigned int nodeId, unsigned i
 bool rewireConnectionToRandom(Network *network, unsigned int nodeId, unsigned int target);
 unsigned int randomNeighbor(Network *network, unsigned int agent);
 unsigned int randomNode(Network *network);
+unsigned int selectActiveNode(Network *network);
+
+bool setActivityWeights(
+    Network *network,
+    const FLOAT *weights,
+    unsigned int count
+);
+
+void clearActivityWeights(Network *network);
+
 void destroyNetwork(Network *network);
 
