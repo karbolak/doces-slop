@@ -225,7 +225,7 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
 
             if (drawRandomFLOATNumber() < postingFilterProbability){
                 if (isNewPost == true){
-                    postId = createNewPost(iteration, postList, bOfTheSelectedNode, theta);
+                    postId = createNewPost(iteration, postList, (long int) selectedNode, bOfTheSelectedNode, theta);
                 }
                 incrementCountCascade(postList, postId);
                 incrementPostedCount(postList, postId);
@@ -239,6 +239,7 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
                         if (postInFeed(feeds, neighborIndex, postId) == false){
                             incrementPostedCount(postList, postId);
                             pushFeed(feeds, postList, neighborIndex, postId, iteration);
+                            incrementReceivedCount(postList, postId);
                         }
                         
                         if(stubborn[neighborIndex] == false){//the stubborn agents do not change their oppinions

@@ -42,12 +42,28 @@ void printPostList(PostList *postList){
     }
 }
 
-unsigned long int createNewPost(unsigned int iteration, PostList *postList, FLOAT userOpinion, FLOAT theta){
+unsigned long int createNewPost(
+    unsigned int iteration,
+    PostList *postList,
+    long int originUserId,
+    FLOAT userOpinion,
+    FLOAT theta
+){
     unsigned int id = postList->numberOfPosts;
-    if (postList->numberOfPosts >= postList->maximunNumberOfPosts){
+
+    if (
+        postList->numberOfPosts
+        >= postList->maximunNumberOfPosts
+    ){
         postList->maximunNumberOfPosts += ARRAY_STEP;
-        postList->post = (PostInformation *) realloc(postList->post, postList->maximunNumberOfPosts * sizeof(PostInformation));
+
+        postList->post = (PostInformation *) realloc(
+            postList->post,
+            postList->maximunNumberOfPosts
+                * sizeof(PostInformation)
+        );
     }
+
     postList->post[id].id = id;
     postList->post[id].theta = theta;
     postList->post[id].postedCount = 0;
@@ -56,26 +72,63 @@ unsigned long int createNewPost(unsigned int iteration, PostList *postList, FLOA
     postList->post[id].livePosts = 0;
     postList->post[id].cascadeSize = 0;
     postList->post[id].userOpinion = userOpinion;
+    postList->post[id].originUserId = originUserId;
+    postList->post[id].receivedCount = 0;
+
     postList->numberOfPosts++;
+
     return postList->post[id].id;
 }
 
-void incrementPostedCount(PostList *postList, unsigned int  postId){
+
+void incrementPostedCount(
+    PostList *postList,
+    unsigned int postId
+){
     if (postId >= postList->numberOfPosts){
-        printf("Error (incrementPostedCount): this post doesn't exist!\n");
+        printf(
+            "Error (incrementPostedCount): "
+            "this post doesn't exist!\n"
+        );
         return;
     }
+
     postList->post[postId].postedCount++;
     postList->post[postId].livePosts++;
 }
 
-void incrementCountCascade(PostList *postList, unsigned int  postId){
+
+void incrementCountCascade(
+    PostList *postList,
+    unsigned int postId
+){
     if (postId >= postList->numberOfPosts){
-        printf("Error (incrementCountCascade): this post doesn't exist!\n");
+        printf(
+            "Error (incrementCountCascade): "
+            "this post doesn't exist!\n"
+        );
         return;
     }
+
     postList->post[postId].cascadeSize++;
 }
+
+
+void incrementReceivedCount(
+    PostList *postList,
+    unsigned int postId
+){
+    if (postId >= postList->numberOfPosts){
+        printf(
+            "Error (incrementReceivedCount): "
+            "this post doesn't exist!\n"
+        );
+        return;
+    }
+
+    postList->post[postId].receivedCount++;
+}
+
 
 void createFeeds(Feeds *feeds, Network *network, unsigned int feedSize){
     feeds->feedSize = feedSize;
@@ -254,7 +307,7 @@ void populateFeedRandom(Network *network, Feeds *feeds, PostList *postList, FLOA
             theta = drawRandomFLOATNumber();
             theta *= (maxB - minB);
             theta += minB;
-            postId = createNewPost(iteration, postList, b[i], theta);
+            postId = createNewPost(iteration, postList, -1, b[i], theta);
             pushFeed(feeds, postList, i, postId, iteration);
             incrementCountCascade(postList, postId);
             incrementPostedCount(postList, postId);

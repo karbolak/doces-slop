@@ -549,6 +549,45 @@ PyObject *PyGetActivationCounts(PyDynamics *self){
     return counts;
 }
 
+PyObject *PyGetPostOriginUserIds(PyDynamics *self){PyObject *pyList = PyList_New(0);
+    if (self->postList && self->network){
+        for (
+            unsigned long int i = 0;
+            i < self->postList->numberOfPosts;
+            i++
+        ){
+            PyObject *value = PyLong_FromLong(
+                self->postList->post[i].originUserId
+            );
+
+            PyList_Append(pyList, value);
+            Py_DECREF(value);
+        }
+    }
+
+    return pyList;
+}
+
+
+PyObject *PyGetPostReceivedCounts(PyDynamics *self){PyObject *pyList = PyList_New(0);
+    if (self->postList && self->network){
+        for (
+            unsigned long int i = 0;
+            i < self->postList->numberOfPosts;
+            i++
+        ){
+            PyObject *value = PyLong_FromUnsignedLong(
+                self->postList->post[i].receivedCount
+            );
+
+            PyList_Append(pyList, value);
+            Py_DECREF(value);
+        }
+    }
+
+    return pyList;
+}
+
 static PyGetSetDef PyDynamics_getsetters[] = {
 	{"opinions", (getter)PyGetOpinions, NULL, "Get a list of agent opinions.", NULL},
 	{"edge_list", (getter)PyGetEdgeList, NULL, "Get edgelist.", NULL},
@@ -562,6 +601,8 @@ static PyGetSetDef PyDynamics_getsetters[] = {
 	{"post_live_post_counts", (getter)PyGetPostLivePosts, NULL, "Get a list of live post counts.", NULL},
 	{"post_user_opinions", (getter)PyGetPostUserOpinions, NULL, "Get a list of post user opinions.", NULL},
 	{"activation_counts", (getter)PyGetActivationCounts, NULL, "Get cumulative per-user activation counts.", NULL},
+	{"post_origin_user_ids", (getter)PyGetPostOriginUserIds, NULL, "Get the originating user id for each post.", NULL},
+	{"post_received_counts", (getter)PyGetPostReceivedCounts, NULL, "Get the number of successful feed receipts for each post.", NULL},
 	{NULL} /* Sentinel */
 };
 

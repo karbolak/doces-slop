@@ -248,6 +248,8 @@ class Opinion_dynamics(core.Dynamics):
         self._cascade_stats_dict['live_posts'] = self.post_live_post_counts
         self._cascade_stats_dict['user_opinion'] = self.post_user_opinions
         self.generated_cascade_stats_dict = True
+        self._cascade_stats_dict["origin_user_id"] = self.post_origin_user_ids
+        self._cascade_stats_dict["received_count"] = self.post_received_counts
         return self._cascade_stats_dict
 
     def get_cascade_stats_post_id2stats_dict(self):

@@ -27,12 +27,23 @@ SOFTWARE.
 typedef struct {
     unsigned long int id;
     FLOAT theta;
-    unsigned int postedCount; //memorization
-    unsigned int cascadeSize; //Number of times it was posted
+    unsigned int postedCount;
+    unsigned int cascadeSize;
     unsigned long int birth;
     unsigned long int death;
     unsigned int livePosts;
-    FLOAT userOpinion; //Opinion of the user that posted
+    FLOAT userOpinion;
+
+    /*
+     * User that originally created the content.
+     * -1 denotes background content created during feed initialization.
+     */
+    long int originUserId;
+
+    /*
+     * Number of successful insertions into another user's feed.
+     */
+    unsigned long int receivedCount;
 } PostInformation;
 
 typedef struct {
@@ -50,8 +61,9 @@ typedef struct {
 
 void createPostList(PostList *postList);
 void printPostList(PostList *postList);
-unsigned long int createNewPost(unsigned int iteration, PostList *postList, FLOAT userOpinion, FLOAT theta);
+unsigned long int createNewPost(unsigned int iteration, PostList *postList, long int originUserId, FLOAT userOpinion, FLOAT theta);
 void incrementPostedCount(PostList *postList, unsigned int  postId);
+void incrementReceivedCount(PostList *postList, unsigned int postId);
 void incrementCountCascade(PostList *postList, unsigned int  postId);
 void createFeeds(Feeds *feeds, Network *network, unsigned int feedSize);
 unsigned int getFeedSize(Feeds *feeds, unsigned int v);
