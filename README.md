@@ -4,11 +4,11 @@ An experimental fork of [DOCES (Dynamical Opinion Clusters Exploration Suite)](h
 
 This repository contains modifications to the **simulation engine** used in our University of Groningen *Design of Multi-Agent Systems* project.
 
-The implemented study isolates producer activity and prevalence in content diffusion. Its question is:
+The extended study compares producer activity and receipt-responsive content selection. Its question is:
 
-> How do producer activity and prevalence affect a labelled subgroup's share of feed receipts relative to its share of production in DOCES?
+> How do synthetic-producer activity and receipt-based content adaptation affect relative exposure in an adaptive social-network simulation?
 
-AI-slop production motivates the study, but the synthetic label is a provenance marker. It does not encode content quality, AI generation, coordination, or a learned response to rewards. The current engine includes weighted activation, persistent origin identifiers and receipt counters. Producer weights and content-generation rules remain fixed throughout each run.
+AI-slop production motivates the study. The synthetic label marks producer identity and post provenance; it does not encode actual generated media or content quality. The engine supports weighted activation, persistent origins, receipt counters, and optional receipt-responsive opinion-bin selection. Activity weights stay fixed; adaptive producers use past receipts to choose future content opinions.
 
 See [VALIDATION.md](VALIDATION.md) for verified measurement semantics and the feed-capacity regression test. The sibling research repository contains the main sweep, the separate 200-world capacity experiment, and the final report.
 
@@ -27,7 +27,7 @@ DOCES already implements many of the mechanisms required by the project:
 
 The original Oliveira et al. model selects active users uniformly. This fork adds optional non-negative activity weights. With no weights configured, the original selection path remains available. Reposts retain their original producer identity, while receipts count accepted follower feed insertions that are not already present in the recipient's feed.
 
-Adaptive production strategies, reward-driven behaviour, coordinated accounts and platform interventions remain future work. Existing opinion dynamics and follower rewiring do not implement those producer strategies.
+The adaptive extension implements one receipt-driven opinion-selection policy and a random-bin control. Financial rewards, coordinated accounts and platform interventions remain future work. Producer adaptation is distinct from the original follower rewiring.
 
 ---
 
@@ -121,3 +121,8 @@ A successful run ends with:
 ```
 
 If this works, your local environment is ready for development.
+## Adaptive content-policy extension
+
+The `feature/adaptive-producers` branch adds receipt-responsive opinion-bin selection and a random-bin control, keeping the baseline dynamics available. See [PRODUCER_POLICY.md](PRODUCER_POLICY.md) for the exact objective, exploration rule, provenance accounting and limitations. Configure policies before the first simulation with `set_producer_policies`; retrieve counters through `producer_stats`.
+
+The validated activity-only backup remains on `backup/dmas-5-validated`. Tests run with `python -m unittest discover -s tests -v`; the suite includes a small native C decision-rule check and requires a C compiler.

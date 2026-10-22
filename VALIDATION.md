@@ -16,3 +16,5 @@ Interpretation details verified against `Source/dynamics.c`, `Source/post.c`, an
 - Activation weights affect both innovation opportunities and repost opportunities under a fixed total event budget.
 
 The experiment and its complete data are in the sibling research repository. The pre-existing build emits setuptools/NumPy deprecation and C indentation warnings; these are not test failures.
+
+The later adaptive-producer extension is documented separately in `PRODUCER_POLICY.md`. Its native source changes are isolated on `feature/adaptive-producers`; the paragraph above about unchanged dynamics refers to the preserved backup. The extended engine passes baseline compatibility checks, a controlled native reward-history test, input validation, attempt/accepted-post/receipt conservation, and the saved 50-seed aggregate baseline.
