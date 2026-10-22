@@ -4,36 +4,13 @@ An experimental fork of [DOCES (Dynamical Opinion Clusters Exploration Suite)](h
 
 This repository contains modifications to the **simulation engine** used in our University of Groningen *Design of Multi-Agent Systems* project.
 
-The research project investigates whether high-volume, adaptive synthetic-content producers can obtain disproportionate exposure through their interaction with social-media recommendation mechanisms.
+The implemented study isolates producer activity and prevalence in content diffusion. Its question is:
 
-## Research motivation
+> How do producer activity and prevalence affect a labelled subgroup's share of feed receipts relative to its share of production in DOCES?
 
-Recent work on AI-generated low-effort content, commonly referred to as **AI slop**, suggests that generative AI enables a distinct form of content production characterised by:
+AI-slop production motivates the study, but the synthetic label is a provenance marker. It does not encode content quality, AI generation, coordination, or a learned response to rewards. The current engine includes weighted activation, persistent origin identifiers and receipt counters. Producer weights and content-generation rules remain fixed throughout each run.
 
-- high production volume,
-- rapid experimentation,
-- replication of successful formats,
-- operation of multiple accounts,
-- adaptation to algorithmic feedback.
-
-Our project studies these behaviours using an agent-based model.
-
-The main research question is:
-
-> **Under what conditions does the interaction between high-volume synthetic content production, adaptive attention-seeking behaviour, and algorithmic recommendation lead to disproportionate synthetic-content exposure in a social-media network?**
-
-The project builds primarily on:
-
-- Oliveira, K. A., de Arruda, H. F., & Moreno, Y.  
-  *Mechanistic interplay between information spreading and opinion polarization.*
-
-- Tang et al.  
-  *Behind the "AI slop": exploring the AI-generated viral short video production in China.*
-
-The conceptual feedback mechanism is additionally motivated by:
-
-- Pendergrass, W., Johnson, M., & Bacarella, R.  
-  *A strategic cycle of slop: Understanding the commodification of AI feculence and its place in the attention economy.*
+See [VALIDATION.md](VALIDATION.md) for verified measurement semantics and the feed-capacity regression test. The sibling research repository contains the main sweep, the separate 200-world capacity experiment, and the final report.
 
 ## Why fork DOCES?
 
@@ -48,19 +25,9 @@ DOCES already implements many of the mechanisms required by the project:
 - information cascades,
 - per-user behavioural configuration.
 
-The original Oliveira et al. model selects active users uniformly at random. One of the first extensions in this project will replace this assumption with **heterogeneous activity**, allowing synthetic and human producers to differ in how frequently they become active.
+The original Oliveira et al. model selects active users uniformly. This fork adds optional non-negative activity weights. With no weights configured, the original selection path remains available. Reposts retain their original producer identity, while receipts count accepted follower feed insertions that are not already present in the recipient's feed.
 
-Later extensions may introduce:
-
-- human and synthetic producer types,
-- content provenance,
-- heterogeneous activity rates,
-- adaptive synthetic-producer strategies,
-- reward-driven behaviour,
-- coordinated synthetic accounts,
-- platform interventions.
-
-The goal is to modify the existing model incrementally rather than reimplement the social-media simulation from scratch.
+Adaptive production strategies, reward-driven behaviour, coordinated accounts and platform interventions remain future work. Existing opinion dynamics and follower rewiring do not implement those producer strategies.
 
 ---
 
@@ -83,7 +50,7 @@ This repository is our modified fork of DOCES. If you want to work on the simula
 ### 1. Clone the repository
 
 ```bash
-git clone <OUR-REPOSITORY-URL>
+git clone https://github.com/karbolak/doces-slop.git
 cd doces-slop
 ```
 
