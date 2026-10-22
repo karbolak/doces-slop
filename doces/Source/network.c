@@ -24,6 +24,7 @@ SOFTWARE.
 #include "network.h"
 
 void edgeList2Network(Network *network, EdgeList edgeList, bool verbose){
+	network->producerPolicy = NULL;
 	network->vCount = edgeList.vCount;
 	network->isDirected = edgeList.isDirected;
 	network->invertedAdjlist = (unsigned int **) malloc(edgeList.vCount * sizeof(unsigned int*));
@@ -329,6 +330,8 @@ unsigned int selectActiveNode(Network *network){
 }
 
 void destroyNetwork(Network *network){
+    destroyProducerPolicy(network->producerPolicy);
+    network->producerPolicy = NULL;
 	for (unsigned int i=0; i < network->vCount; i++){
         if (network->neighborsCount[i] > 0){
 			if (network->invertedAdjlist[i]){
@@ -353,4 +356,34 @@ void destroyNetwork(Network *network){
 	clearActivityWeights(network);
 
 	network = NULL;
+}
+
+void destroyProducerPolicy(ProducerPolicy *p){
+    if (!p) return;
+    free(p->modes);
+    free(p->attempts); free(p->accepted); free(p->receipts);
+    free(p->earlyAttempts); free(p->lateAttempts);
+    free(p);
+}
+
+unsigned int selectProducerArm(ProducerPolicy *p, unsigned int user){
+    unsigned int k = p->nStrategies;
+    if (p->modes[user] == 1 || (p->epsilon > 0. && drawRandomFLOATNumber() < p->epsilon))
+        return (unsigned int)(drawRandomFLOATNumber() * k);
+    size_t offset = (size_t)user * k;
+    double best = -1.;
+    unsigned int ties = 0;
+    for (unsigned int a=0; a<k; a++){
+        double value = p->accepted[offset+a] ?
+            (double)p->receipts[offset+a] / p->accepted[offset+a] : 0.;
+        if (value > best){ best=value; ties=1; }
+        else if (value == best) ties++;
+    }
+    unsigned int pick = (unsigned int)(drawRandomFLOATNumber() * ties);
+    for (unsigned int a=0; a<k; a++){
+        double value = p->accepted[offset+a] ?
+            (double)p->receipts[offset+a] / p->accepted[offset+a] : 0.;
+        if (value == best && pick-- == 0) return a;
+    }
+    return k-1;
 }

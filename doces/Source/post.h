@@ -39,6 +39,7 @@ typedef struct {
      * -1 denotes background content created during feed initialization.
      */
     long int originUserId;
+    int strategyArm; /* -1 for untracked/background posts. */
 
     /*
      * Number of successful insertions into another user's feed.

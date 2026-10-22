@@ -73,6 +73,7 @@ unsigned long int createNewPost(
     postList->post[id].cascadeSize = 0;
     postList->post[id].userOpinion = userOpinion;
     postList->post[id].originUserId = originUserId;
+    postList->post[id].strategyArm = -1;
     postList->post[id].receivedCount = 0;
 
     postList->numberOfPosts++;

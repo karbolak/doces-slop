@@ -23,7 +23,21 @@ SOFTWARE.
 */
 #include "utils.h"
 
+/* Modes: 0 original uniform innovation, 1 random bin, 2 epsilon-greedy bin.
+ * Counts include only original innovations and their provenance-preserving receipts. */
 typedef struct {
+    unsigned int nStrategies;
+    double epsilon;
+    int *modes;
+    unsigned long long *attempts, *accepted, *receipts;
+    unsigned long long *earlyAttempts, *lateAttempts;
+} ProducerPolicy;
+
+unsigned int selectProducerArm(ProducerPolicy *policy, unsigned int user);
+void destroyProducerPolicy(ProducerPolicy *policy);
+
+typedef struct {
+    ProducerPolicy *producerPolicy;
     unsigned int vCount;
     unsigned int **invertedAdjlist;
     unsigned int *neighborsCount;

@@ -224,6 +224,21 @@ class Opinion_dynamics(core.Dynamics):
 
         core.Dynamics._set_activity_weights(self, activity_weights)
 
+    def set_producer_policies(self, modes, n_strategies=5, epsilon=0.1):
+        """Configure before simulation: 0=baseline, 1=random, 2=epsilon-greedy.
+
+        Strategies are equal-width bins of the simulation's opinion range.
+        Greedy scores are cumulative own-post receipts / accepted innovations.
+        Human reposts credit the original producer; background posts do not.
+        Untried strategies score zero; exploitation ties are broken randomly.
+        ``producer_stats`` exposes attempts, accepted posts, receipts, and attempt
+        choices in the first/last quarters of each simulate_dynamics call.
+        """
+        modes = np.asarray(modes)
+        if modes.ndim != 1 or not np.issubdtype(modes.dtype, np.integer):
+            raise ValueError("Policy modes must be a one-dimensional integer array.")
+        core.Dynamics._set_producer_policies(self, modes, n_strategies, epsilon)
+
     def get_cascade_stats_dict(self):
         """
         Get the cascade statistics dictionary.

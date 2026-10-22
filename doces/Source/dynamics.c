@@ -194,6 +194,8 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
     if (verbose)
         printf("Executing the dynamics.\n");
 
+    ProducerPolicy *policy = network->producerPolicy;
+    int arm = -1;
     unsigned long int lastIteration = firstIteration + nIterations + 1;
     unsigned int numberOfIterations = lastIteration-firstIteration;
     for (unsigned long int iteration = firstIteration; iteration < lastIteration; iteration++){
@@ -208,9 +210,26 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
 
         if (drawRandomFLOATNumber() < mu){//probability to create a new post
             //Here we define only theta because we create only the posts that will be distributed
-            theta = drawRandomFLOATNumber();
-            theta *= (maxOpinion - minOpinion);
-            theta += minOpinion;
+            if (policy && policy->modes[selectedNode] != 0){
+                arm = (int)selectProducerArm(policy, selectedNode);
+                theta = minOpinion + (arm + drawRandomFLOATNumber()) *
+                    (maxOpinion - minOpinion) / policy->nStrategies;
+            }else{
+                /* Preserve the original draws and arithmetic in baseline mode. */
+                theta = drawRandomFLOATNumber();
+                theta *= (maxOpinion - minOpinion);
+                theta += minOpinion;
+                arm = policy ? (int)((theta-minOpinion) * policy->nStrategies /
+                                      (maxOpinion-minOpinion)) : -1;
+                if (policy && arm >= policy->nStrategies) arm = policy->nStrategies-1;
+            }
+            if (policy){
+                size_t index = (size_t)selectedNode * policy->nStrategies + arm;
+                policy->attempts[index]++;
+                unsigned long int elapsed = iteration-firstIteration;
+                if (elapsed < (nIterations+1)/4) policy->earlyAttempts[index]++;
+                if (elapsed >= 3*(nIterations+1)/4) policy->lateAttempts[index]++;
+            }
             isNewPost = true;
         }else{//use a post from the feed
             if (getFeedSize(feeds, selectedNode) > 0){//test if there is at least one post in the feed
@@ -226,6 +245,10 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
             if (drawRandomFLOATNumber() < postingFilterProbability){
                 if (isNewPost == true){
                     postId = createNewPost(iteration, postList, (long int) selectedNode, bOfTheSelectedNode, theta);
+                    if (policy){
+                        postList->post[postId].strategyArm = arm;
+                        policy->accepted[(size_t)selectedNode*policy->nStrategies+arm]++;
+                    }
                 }
                 incrementCountCascade(postList, postId);
                 incrementPostedCount(postList, postId);
@@ -240,6 +263,11 @@ unsigned long int simulate(FLOAT *b, //The opinions change here
                             incrementPostedCount(postList, postId);
                             pushFeed(feeds, postList, neighborIndex, postId, iteration);
                             incrementReceivedCount(postList, postId);
+                            if (policy && postList->post[postId].strategyArm >= 0){
+                                size_t index = (size_t)postList->post[postId].originUserId *
+                                    policy->nStrategies + postList->post[postId].strategyArm;
+                                policy->receipts[index]++;
+                            }
                         }
                         
                         if(stubborn[neighborIndex] == false){//the stubborn agents do not change their oppinions

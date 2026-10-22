@@ -588,7 +588,28 @@ PyObject *PyGetPostReceivedCounts(PyDynamics *self){PyObject *pyList = PyList_Ne
     return pyList;
 }
 
+PyObject *PyGetProducerStats(PyDynamics *self){
+    PyObject *result = PyDict_New();
+    ProducerPolicy *p = self->network ? self->network->producerPolicy : NULL;
+    if (!p) return result;
+    const char *names[] = {"attempts", "accepted", "receipts", "early_attempts", "late_attempts"};
+    unsigned long long *arrays[] = {p->attempts, p->accepted, p->receipts, p->earlyAttempts, p->lateAttempts};
+    for (int field=0; field<5; field++){
+        PyObject *users = PyList_New(self->network->vCount);
+        for (unsigned int i=0; i<self->network->vCount; i++){
+            PyObject *arms = PyList_New(p->nStrategies);
+            for (unsigned int a=0; a<p->nStrategies; a++)
+                PyList_SET_ITEM(arms, a, PyLong_FromUnsignedLongLong(arrays[field][(size_t)i*p->nStrategies+a]));
+            PyList_SET_ITEM(users, i, arms);
+        }
+        PyDict_SetItemString(result, names[field], users);
+        Py_DECREF(users);
+    }
+    return result;
+}
+
 static PyGetSetDef PyDynamics_getsetters[] = {
+    {"producer_stats", (getter)PyGetProducerStats, NULL, "Per-user, per-strategy innovation and receipt counts.", NULL},
 	{"opinions", (getter)PyGetOpinions, NULL, "Get a list of agent opinions.", NULL},
 	{"edge_list", (getter)PyGetEdgeList, NULL, "Get edgelist.", NULL},
 	{"rewiring_count", (getter)PyGetRewireCounts, NULL, "Get rewiring count.", NULL},
@@ -1193,7 +1214,53 @@ PyObject *PyForceDealloc(PyDynamics *self){
 	return Py_BuildValue("", NULL);
 }
 
+PyObject *PySetProducerPolicies(PyDynamics *self, PyObject *args, PyObject *kwds){
+    static char *kwlist[] = {"modes", "n_strategies", "epsilon", NULL};
+    PyObject *object;
+    int k = 5;
+    double epsilon = .1;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|id", kwlist, &object, &k, &epsilon)) return NULL;
+    if (!self->network || self->postList){
+        PyErr_SetString(PyExc_ValueError, "Configure producer policies before simulating."); return NULL;
+    }
+    if (k<2 || k>32 || !isfinite(epsilon) || epsilon<0. || epsilon>1.){
+        PyErr_SetString(PyExc_ValueError, "Use 2..32 strategies and finite epsilon in [0,1]."); return NULL;
+    }
+    PyArrayObject *modes = convertToIntegerArray(object, 1, 1);
+    if (!modes) return NULL;
+    unsigned int n = self->network->vCount;
+    if (PyArray_SIZE(modes) != n){
+        Py_DECREF(modes); PyErr_SetString(PyExc_ValueError, "One policy mode per user is required."); return NULL;
+    }
+    npy_int64 *values = PyArray_DATA(modes);
+    for (unsigned int i=0; i<n; i++){
+        if (values[i]<0 || values[i]>2){
+            Py_DECREF(modes); PyErr_SetString(PyExc_ValueError, "Modes must be 0, 1 or 2."); return NULL;
+        }
+    }
+    ProducerPolicy *p = calloc(1, sizeof(ProducerPolicy));
+    if (!p){ Py_DECREF(modes); return PyErr_NoMemory(); }
+    p->nStrategies = k; p->epsilon = epsilon;
+    size_t count = (size_t)n*k;
+    p->modes = malloc(n*sizeof(int));
+    p->attempts=calloc(count,sizeof(unsigned long long));
+    p->accepted=calloc(count,sizeof(unsigned long long));
+    p->receipts=calloc(count,sizeof(unsigned long long));
+    p->earlyAttempts=calloc(count,sizeof(unsigned long long));
+    p->lateAttempts=calloc(count,sizeof(unsigned long long));
+    if (!p->modes || !p->attempts || !p->accepted || !p->receipts || !p->earlyAttempts || !p->lateAttempts){
+        Py_DECREF(modes); destroyProducerPolicy(p); return PyErr_NoMemory();
+    }
+    for (unsigned int i=0; i<n; i++) p->modes[i] = values[i];
+    Py_DECREF(modes);
+    destroyProducerPolicy(self->network->producerPolicy);
+    self->network->producerPolicy = p;
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef PyDynamics_methods[] = {
+    {"_set_producer_policies", (PyCFunction)PySetProducerPolicies,
+     METH_VARARGS | METH_KEYWORDS, "Configure optional receipt-responsive innovation policies."},
 	{"_simulate_dynamics",
 	 (PyCFunction)PyDynamicsSimulateDynamics,
 	 METH_VARARGS | METH_KEYWORDS,
